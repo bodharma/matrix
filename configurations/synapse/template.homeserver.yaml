@@ -44,3 +44,9 @@ experimental_features:
 
     # URL to advertise to clients where users can self-manage their account
     account_management_url: "{{KEYCLOAK_FQDN}}/realms/{{KEYCLOAK_REALM_IDENTIFIER}}/account"
+
+app_service_config_files:
+  - /bridges/whatsapp-registration.yaml
+  - /bridges/telegram-registration.yaml
+  - /bridges/discord-registration.yaml
+  - /bridges/slack-registration.yaml
