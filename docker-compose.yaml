@@ -161,7 +161,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_BRIDGES_PASSWORD}
     volumes:
       - postgres-bridges:/var/lib/postgresql/data
-    entrypoint: ["/bin/sh", "-c", "mkdir -p /docker-entrypoint-initdb.d && cat > /docker-entrypoint-initdb.d/create-bridge-dbs.sh <<'INITEOF'\n#!/bin/bash\nfor db in mautrix_telegram mautrix_discord mautrix_slack; do\n  echo \"Creating database $$db\"\n  psql -U \"$$POSTGRES_USER\" -c \"CREATE DATABASE $$db\"\ndone\nINITEOF\nchmod +x /docker-entrypoint-initdb.d/create-bridge-dbs.sh\nexec docker-entrypoint.sh postgres"]
+    entrypoint: ["/bin/sh", "-c", "printf 'CREATE DATABASE mautrix_telegram;\\nCREATE DATABASE mautrix_discord;\\nCREATE DATABASE mautrix_slack;\\n' > /docker-entrypoint-initdb.d/create-bridge-dbs.sql && exec docker-entrypoint.sh postgres"]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_BRIDGES_USER} -d mautrix_whatsapp"]
       interval: 5s
