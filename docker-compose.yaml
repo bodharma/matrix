@@ -1,23 +1,3 @@
-version: '3.8'
-
-configs:
-  nginx_config:
-    file: ./configurations/nginx/nginx.conf
-  nginx_synapse_client_well_known:
-    file: ./configurations/nginx/index.html
-
-  synapse_db_config:
-    file: ./configurations/synapse/db.yaml
-  synapse_email_config:
-    file: ./configurations/synapse/email.yaml
-  synapse_oidc_config:
-    file: ./configurations/synapse/oidc.yaml
-  synapse_homeserver:
-    file: ./configurations/synapse/homeserver.yaml
-
-  synapse_mas_config:
-    file: ./configurations/synapse-mas/config.yaml
-
 services:
   postgres-synapse:
     image: postgres:15
@@ -28,7 +8,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_SYNAPSE_PASSWORD}
     volumes:
       - postgres-synapse:/var/lib/postgresql/data
-  
+
   postgres-sliding-sync:
     image: postgres:15
     restart: unless-stopped
@@ -38,7 +18,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_SLIDING_SYNC_PASSWORD}
     volumes:
       - postgres-sliding-sync:/var/lib/postgresql/data
-  
+
   postgres-synapse-mas:
     image: postgres:15
     restart: unless-stopped
@@ -54,23 +34,16 @@ services:
     restart: unless-stopped
     environment:
       SYNAPSE_CONFIG_PATH: /data/config
-    configs:
-      - source: synapse_homeserver
-        target: /data/config/homeserver.yaml
-      - source: synapse_db_config
-        target: /data/config/db.yaml
-      - source: synapse_oidc_config
-        target: /data/config/oidc.yaml
-      - source: synapse_email_config
-        target: /data/config/email.yaml
     volumes:
       - /data/matrix/synapse/data:/data
       - /data/matrix/synapse/media:/media_store
+      - /data/matrix/configurations/synapse/homeserver.yaml:/data/config/homeserver.yaml:ro
+      - /data/matrix/configurations/synapse/db.yaml:/data/config/db.yaml:ro
+      - /data/matrix/configurations/synapse/oidc.yaml:/data/config/oidc.yaml:ro
+      - /data/matrix/configurations/synapse/email.yaml:/data/config/email.yaml:ro
     depends_on:
       - postgres-synapse
       - synapse-mass-authentication-service
-    #ports:
-    #  - "8008:8008"
 
   sliding-sync:
     image: ghcr.io/matrix-org/sliding-sync:latest
@@ -78,8 +51,6 @@ services:
     depends_on:
       - synapse
       - postgres-sliding-sync
-    #ports:
-    #  - "8009:8009"
     environment:
       SYNCV3_SERVER: ${SYNAPSE_FQDN}
       SYNCV3_DB: "host=postgres-sliding-sync sslmode=disable port=5432 dbname=${POSTGRES_SLIDING_SYNC_DB} user=${POSTGRES_SLIDING_SYNC_USER} password=${POSTGRES_SLIDING_SYNC_PASSWORD}"
@@ -89,47 +60,20 @@ services:
   synapse-mass-authentication-service:
     image: ghcr.io/element-hq/matrix-authentication-service:latest
     restart: unless-stopped
-    configs:
-      - source: synapse_mas_config
-        target: ./config.yaml
+    volumes:
+      - /data/matrix/configurations/synapse-mas/config.yaml:/config.yaml:ro
+    command: server --config /config.yaml
     depends_on:
       - postgres-synapse-mas
 
   nginx:
     image: nginx:latest
     restart: unless-stopped
-    configs:
-      - source: nginx_config
-        target: /etc/nginx/conf.d/default.conf
-      - source: nginx_synapse_client_well_known
-        target: /usr/share/nginx/html/.well-known/matrix/client/index.html
-    #ports:
-    #  - "8888:80"
+    volumes:
+      - /data/matrix/configurations/nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - /data/matrix/configurations/nginx/index.html:/usr/share/nginx/html/.well-known/matrix/client/index.html:ro
 
-  # pgadmin:
-  #   image: dpage/pgadmin4
-  #   restart: unless-stopped
-  #   environment:
-  #     PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
-  #     PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
-  #   ports:
-  #     - "5050:80"
-  #   volumes:
-  #     - ./pgadmin_data:/var/lib/pgadmin
-
-  # backup:
-  #   image: rclone/rclone:latest
-  #   restart: unless-stopped
-  #   volumes:
-  #     - ./backup_data:/backup
-  #     - ./pg_data:/pg_data:ro
-  #     - ./synapse_data:/synapse_data:ro
-  #     - ./rclone:/config/rclone
-  #   environment:
-  #     AWS_ACCESS_KEY_ID: your_aws_access_key_id
-  #     AWS_SECRET_ACCESS_KEY: your_aws_secret_access_key
-  #   entrypoint: /bin/sh -c
-  #   command: >
-  #     apk add --no-cache bash coreutils && \
-  #     echo '0 2 * * * /backup/backup.sh' | crontab - && \
-  #     crond -f
+volumes:
+  postgres-synapse:
+  postgres-sliding-sync:
+  postgres-synapse-mas:
