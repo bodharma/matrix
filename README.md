@@ -1,64 +1,55 @@
-# 🚀 Matrix Server Setup Guide
+# Matrix Server with Bridges
 
-Welcome to your one-stop guide to deploying a Matrix server using this repository! Let's get you up and running with the power of **Coolify** and a sprinkle of **Docker** magic. 🐳✨
+A self-hosted Matrix homeserver stack with Keycloak SSO and 6 messaging bridges, deployed via Docker Compose on Coolify.
 
----
+## What's Included
 
-## 📋 Prerequisites
+- **Synapse** — Matrix homeserver
+- **MAS** — Matrix Authentication Service (OIDC via Keycloak)
+- **Sliding Sync** — Fast sync proxy for modern clients
+- **nginx** — Reverse proxy with auth routing and .well-known discovery
+- **6 bridges** — WhatsApp, Telegram, Discord, Slack, Meta (Facebook/Instagram), LinkedIn
 
-- **Coolify**: For easy self-hosting and app management (makes your life way simpler!)
-- **A Keen Spirit**: Get ready to embark on a tech adventure! 🎒🧑‍💻
+All configuration is generated at runtime from environment variables. No config files to manage — just set your `.env` and deploy.
 
----
+## Quick Start
 
-## ⚙️ Step-by-Step Setup
+1. Install [Coolify](https://coolify.io) on your server
+2. Deploy Keycloak (available as a Coolify one-click service)
+3. Add this repo as a Docker Compose resource in Coolify
+4. Set environment variables (copy from `.env.example`)
+5. Map domains to service ports
+6. Deploy
 
-### 1. Install Coolify
-Get started by installing Coolify on your server. For instructions, visit [Coolify Self-Hosted](https://coolify.io).
+**Full step-by-step guide: [docs/00-setup-guide.md](docs/00-setup-guide.md)**
 
-### 2. Create Your Project
-1. In Coolify, navigate to **Projects** and select **Create New Project**.
-2. Within your new project, add a resource and select **Keycloak with Postgres**.
-3. Customize your service name, admin user, admin password, and database to suit your preferences. 🎨
-4. **Deploy** and wait for the magic to happen. 🧙‍♂️✨
+## Documentation
 
-### 3. Configure Keycloak
-1. Open the URL of your freshly deployed Keycloak instance.
-2. Log in with your admin credentials.
-3. Create a new realm, give it a unique name, and you're set! ✨
+| Document | Description |
+|----------|-------------|
+| [00-setup-guide.md](docs/00-setup-guide.md) | Complete setup from zero to running server |
+| [MANUAL.md](docs/MANUAL.md) | Day-to-day usage guide for Matrix and all bridges |
+| [01-matrix-fundamentals.md](docs/01-matrix-fundamentals.md) | Matrix protocol deep-dive |
+| [02-synapse-homeserver.md](docs/02-synapse-homeserver.md) | Synapse architecture and configuration |
+| [03-authentication.md](docs/03-authentication.md) | OIDC, MAS, and Keycloak auth flow |
+| [04-deployment-architecture.md](docs/04-deployment-architecture.md) | Docker services, init containers, volumes |
+| [05-bridges.md](docs/05-bridges.md) | Appservice API, mautrix ecosystem, per-bridge details |
+| [06-operations.md](docs/06-operations.md) | Monitoring, backups, troubleshooting, maintenance |
 
-### 4. Deploy Your Matrix Server Containers
-1. Return to Coolify and enter your project.
-2. Add a new resource from this GitHub repository (or your fork).
-3. Set **Build Type** to "Docker Compose", leave defaults, and click **Continue**.
-4. Customize the build command to:
-   ```bash
-   chmod +x ./scripts/run.sh && ./scripts/run.sh && docker compose -f ./docker-compose.yml build
-   ```
-   🔧 This script prepares the required configuration files from your `.env` and keeps configurations updated during deployments.
+## Architecture
 
-### 5. Map Domains & Ports
-Define the domain mappings for your Matrix server components:
+```
+21 containers, 15 volumes
 
-- **Synapse**: `synapse.matrix.your-domain.com` (Port: 8008)
-- **Sliding Sync Server**: `sync.matrix.your-domain.com` (Port: 8009)
-- **MAS**: `mas.matrix.your-domain.com` (Port: 8080)
-- **Nginx (Main Entry)**: `matrix.your-domain.com` (Port: 80)
+  4x PostgreSQL (synapse, MAS, sliding-sync, bridges)
+  7x Init containers (MAS + 6 bridges) — one-shot config generators
+ 10x Runtime services (synapse, MAS, sliding-sync, nginx, 6 bridges)
+```
 
-📝 **Tip**: Ensure nginx is the primary entry point for clients.
+## Environment Variables
 
-### 6. Configure Environment Variables
-1. In Coolify, navigate to **Environment Variables**.
-2. Enable **Developer View** and paste in your `.env.example` content.
-3. Adjust variables as needed (refer to comments for guidance).
-4. Save your changes and switch back to **Normal View** for future variable tweaks.
+Copy `.env.example` and fill in your values. See the [setup guide](docs/00-setup-guide.md#step-7-configure-environment-variables) for details on each variable.
 
-### 7. Deploy and Celebrate! 🎉
-1. Hit **Deploy** and watch everything come to life.
-2. Once successful, access your Matrix server at your designated domain. Test Synapse with the message: "It works! Synapse is running."
+## License
 
-🔗 **Connect clients** to your Matrix server using the nginx-mapped domain: `matrix.your-domain.com`.
-
----
-
-Enjoy your newly deployed Matrix server! 🎊 If you encounter any hiccups, remember: tech adventures always include a bit of troubleshooting magic! 🧙‍♀️💻
+See repository license.
