@@ -50,3 +50,4 @@ app_service_config_files:
   - /bridges/telegram-registration.yaml
   - /bridges/discord-registration.yaml
   - /bridges/slack-registration.yaml
+  - /bridges/meta-registration.yaml
