@@ -9,11 +9,51 @@ services:
       POSTGRES_BRIDGES_USER: ${POSTGRES_BRIDGES_USER}
       POSTGRES_BRIDGES_PASSWORD: ${POSTGRES_BRIDGES_PASSWORD}
       MAUBOT_ADMIN_PASSWORD: ${MAUBOT_ADMIN_PASSWORD}
-    entrypoint: ["/bin/bash", "/scripts/maubot-init.sh"]
+    entrypoint:
+      - /bin/bash
+      - -c
+      - |
+        set -e
+        if [ ! -f /data/config.yaml ]; then
+          cp /opt/maubot/example-config.yaml /data/config.yaml
+        fi
+        yq -i '.database = "postgresql://" + env(POSTGRES_BRIDGES_USER) + ":" + env(POSTGRES_BRIDGES_PASSWORD) + "@postgres-bridges:5432/maubot"' /data/config.yaml
+        yq -i '.plugin_databases.postgres = "postgresql://" + env(POSTGRES_BRIDGES_USER) + ":" + env(POSTGRES_BRIDGES_PASSWORD) + "@postgres-bridges:5432/maubot"' /data/config.yaml
+        yq -i '.server.hostname = "0.0.0.0"' /data/config.yaml
+        yq -i '.server.port = 29316' /data/config.yaml
+        yq -i '.server.public_url = env(SYNAPSE_FQDN)' /data/config.yaml
+        yq -i '.server.ui_base_path = "/_matrix/maubot"' /data/config.yaml
+        yq -i '.homeservers = {env(SYNAPSE_SERVER_NAME): {"url": "http://synapse:8008", "secret": null}}' /data/config.yaml
+        yq -i '.admins.root = env(MAUBOT_ADMIN_PASSWORD)' /data/config.yaml
+        yq -i '.api_features.login = true' /data/config.yaml
+        mkdir -p /data/plugins /data/trash /data/dbs
+        if [ ! -f /data/registration.yaml ]; then
+          ESCAPED_DOMAIN=$$(echo "$$SYNAPSE_SERVER_NAME" | sed 's/\./\\./g')
+          AS_TOKEN=$$(python3 -c 'import secrets; print(secrets.token_hex(32))')
+          HS_TOKEN=$$(python3 -c 'import secrets; print(secrets.token_hex(32))')
+          cat > /data/registration.yaml <<ENDREG
+        id: maubot
+        url: "http://maubot:29316"
+        as_token: $${AS_TOKEN}
+        hs_token: $${HS_TOKEN}
+        sender_localpart: maubot
+        namespaces:
+          users:
+            - regex: "@maubot_.*:$${ESCAPED_DOMAIN}"
+              exclusive: true
+          rooms: []
+          aliases: []
+        rate_limited: false
+        de.sorunome.msc2409.push_ephemeral: true
+        push_ephemeral: true
+        ENDREG
+        fi
+        mkdir -p /registrations
+        cp /data/registration.yaml /registrations/maubot-registration.yaml
+        chown -R 1337:1337 /data
     volumes:
       - maubot-data:/data
       - bridge-registrations:/registrations
-      - ./scripts/maubot-init.sh:/scripts/maubot-init.sh:ro
     networks:
       - matrix
 
@@ -24,11 +64,84 @@ services:
     environment:
       SYNAPSE_SERVER_NAME: ${SYNAPSE_SERVER_NAME}
       BRIDGE_ADMIN_USER: ${BRIDGE_ADMIN_USER}
-    entrypoint: ["/bin/sh", "/scripts/hookshot-init.sh"]
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        set -e
+        mkdir -p /data
+        if [ ! -f /data/passkey.pem ]; then
+          openssl genpkey -out /data/passkey.pem -outform PEM -algorithm RSA -pkeyopt rsa_keygen_bits:4096 2>/dev/null
+        fi
+        cat > /data/config.yml <<ENDCONF
+        bridge:
+          domain: $$SYNAPSE_SERVER_NAME
+          url: http://synapse:8008
+          mediaUrl: https://$$SYNAPSE_SERVER_NAME
+          port: 9993
+          bindAddress: 0.0.0.0
+        logging:
+          level: info
+          colorize: true
+          json: false
+          timestampFormat: HH:mm:ss:SSS
+        passFile: /data/passkey.pem
+        listeners:
+          - port: 9000
+            bindAddress: 0.0.0.0
+            resources:
+              - webhooks
+          - port: 9002
+            bindAddress: 0.0.0.0
+            resources:
+              - widgets
+        permissions:
+          - actor: $$SYNAPSE_SERVER_NAME
+            services:
+              - service: "*"
+                level: admin
+        generic:
+          enabled: true
+          outbound: false
+          urlPrefix: https://$$SYNAPSE_SERVER_NAME/hookshot/
+          userIdPrefix: _hookshot_
+          allowJsTransformationFunctions: false
+        feeds:
+          enabled: true
+          pollIntervalSeconds: 600
+          pollTimeoutSeconds: 30
+        bot:
+          displayname: Hookshot Bot
+        ENDCONF
+        if [ ! -f /data/registration.yml ]; then
+          AS_TOKEN=$$(cat /dev/urandom | tr -dc 'a-f0-9' | head -c 64)
+          HS_TOKEN=$$(cat /dev/urandom | tr -dc 'a-f0-9' | head -c 64)
+          ESCAPED_DOMAIN=$$(echo "$$SYNAPSE_SERVER_NAME" | sed 's/\./\\./g')
+          cat > /data/registration.yml <<ENDREG
+        id: matrix-hookshot
+        as_token: $${AS_TOKEN}
+        hs_token: $${HS_TOKEN}
+        namespaces:
+          rooms: []
+          users:
+            - regex: "@_hookshot_.*:$${ESCAPED_DOMAIN}"
+              exclusive: true
+            - regex: "@feeds:$${ESCAPED_DOMAIN}"
+              exclusive: true
+          aliases: []
+        sender_localpart: hookshot
+        url: "http://hookshot:9993"
+        rate_limited: false
+        de.sorunome.msc2409.push_ephemeral: true
+        push_ephemeral: true
+        ENDREG
+        fi
+        mkdir -p /registrations
+        cp /data/registration.yml /registrations/hookshot-registration.yaml
+        chown -R 1000:1000 /data
     volumes:
       - hookshot-data:/data
       - bridge-registrations:/registrations
-      - ./scripts/hookshot-init.sh:/scripts/hookshot-init.sh:ro
     networks:
       - matrix
 
@@ -82,10 +195,34 @@ services:
       BRIDGE_ADMIN_USER: ${BRIDGE_ADMIN_USER}
       DIMENSION_ACCESS_TOKEN: ${DIMENSION_ACCESS_TOKEN}
       DIMENSION_PUBLIC_URL: ${DIMENSION_PUBLIC_URL}
-    entrypoint: ["/bin/sh", "/scripts/dimension-entrypoint.sh"]
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        set -e
+        cat > /home/node/matrix-dimension/config/production.yaml <<ENDCONF
+        web:
+          port: 8184
+          address: '0.0.0.0'
+        homeserver:
+          name: "$$SYNAPSE_SERVER_NAME"
+          clientServerUrl: "http://synapse:8008"
+          accessToken: "$$DIMENSION_ACCESS_TOKEN"
+        admins:
+          - "$$BRIDGE_ADMIN_USER"
+        database:
+          file: "/data/dimension.db"
+          botData: "/data/dimension.bot.json"
+        stickers:
+          enabled: true
+          stickerBot: "@stickers:t2bot.io"
+          managerUrl: "https://stickers.t2bot.io"
+        dimension:
+          publicUrl: "$$DIMENSION_PUBLIC_URL"
+        ENDCONF
+        exec node /home/node/matrix-dimension/build/app/index.js -p 8184
     volumes:
       - dimension-data:/data
-      - ./scripts/dimension-entrypoint.sh:/scripts/dimension-entrypoint.sh:ro
     networks:
       - matrix
 
