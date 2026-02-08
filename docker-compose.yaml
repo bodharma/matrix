@@ -92,7 +92,7 @@ services:
       KEYCLOAK_REALM_IDENTIFIER: ${KEYCLOAK_REALM_IDENTIFIER}
       KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID}
       KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET}
-    entrypoint: ["/bin/sh", "-c", "mkdir -p /data/config && cat > /data/config/homeserver.yaml <<ENDCONF\nserver_name: $${SYNAPSE_SERVER_NAME}\n\nlisteners:\n  - port: 8008\n    type: http\n    bind_addresses: ['0.0.0.0']\n    x_forwarded: true\n    resources:\n      - names: [client, federation]\n\nreport_stats: False\n\nlogging:\n  - module: synapse.storage.SQL\n    level: INFO\n\ntrusted_key_servers:\n  - server_name: \"matrix.org\"\nsuppress_key_server_warning: true\n\nenable_registration: false\npassword_config:\n  enabled: false\n\nadmin_contact: 'mailto:$${ADMIN_EMAIL}'\n\nexperimental_features:\n  msc3861:\n    enabled: true\n    issuer: http://synapse-mass-authentication-service:8080\n    client_id: 0000000000000000000SYNAPSE\n    client_auth_method: client_secret_basic\n    client_secret: \"$${SYNAPSE_MAS_SECRET}\"\n    admin_token: \"$${SYNAPSE_API_ADMIN_TOKEN}\"\n    account_management_url: \"$${KEYCLOAK_FQDN}/realms/$${KEYCLOAK_REALM_IDENTIFIER}/account\"\n\napp_service_config_files:\n  - /bridges/whatsapp-registration.yaml\n  - /bridges/telegram-registration.yaml\n  - /bridges/discord-registration.yaml\n  - /bridges/slack-registration.yaml\n  - /bridges/meta-registration.yaml\nENDCONF\ncat > /data/config/db.yaml <<ENDCONF\ndatabase:\n  name: psycopg2\n  args:\n    user: $${POSTGRES_SYNAPSE_USER}\n    password: $${POSTGRES_SYNAPSE_PASSWORD}\n    database: $${POSTGRES_SYNAPSE_DB}\n    host: postgres-synapse\n    port: 5432\n    cp_min: 5\n    cp_max: 10\n  allow_unsafe_locale: true\nENDCONF\ncat > /data/config/email.yaml <<ENDCONF\nemail:\n  smtp_host: \"$${SMTP_HOST}\"\n  smtp_port: $${SMTP_PORT}\n  smtp_user: \"$${SMTP_USER}\"\n  smtp_pass: \"$${SMTP_PASSWORD}\"\n  require_transport_security: $${SMTP_REQUIRE_TRANSPORT_SECURITY}\n  notif_from: \"$${SMTP_NOTIFY_FROM}\"\n  app_name: \"$${SYNAPSE_FRIENDLY_SERVER_NAME}\"\nENDCONF\nexec python -m synapse.app.homeserver -c /data/config/homeserver.yaml -c /data/config/db.yaml -c /data/config/email.yaml --keys-directory /data"]
+    entrypoint: ["/bin/sh", "-c", "mkdir -p /data/config && cat > /data/config/homeserver.yaml <<ENDCONF\nserver_name: $${SYNAPSE_SERVER_NAME}\n\nlisteners:\n  - port: 8008\n    type: http\n    bind_addresses: ['0.0.0.0']\n    x_forwarded: true\n    resources:\n      - names: [client, federation]\n\nreport_stats: False\n\nlogging:\n  - module: synapse.storage.SQL\n    level: INFO\n\ntrusted_key_servers:\n  - server_name: \"matrix.org\"\nsuppress_key_server_warning: true\n\nenable_registration: false\npassword_config:\n  enabled: false\n\nadmin_contact: 'mailto:$${ADMIN_EMAIL}'\n\nexperimental_features:\n  msc3861:\n    enabled: true\n    issuer: http://synapse-mass-authentication-service:8080\n    client_id: 0000000000000000000SYNAPSE\n    client_auth_method: client_secret_basic\n    client_secret: \"$${SYNAPSE_MAS_SECRET}\"\n    admin_token: \"$${SYNAPSE_API_ADMIN_TOKEN}\"\n    account_management_url: \"$${KEYCLOAK_FQDN}/realms/$${KEYCLOAK_REALM_IDENTIFIER}/account\"\n\napp_service_config_files:\n  - /bridges/whatsapp-registration.yaml\n  - /bridges/telegram-registration.yaml\n  - /bridges/discord-registration.yaml\n  - /bridges/slack-registration.yaml\n  - /bridges/meta-registration.yaml\n  - /bridges/linkedin-registration.yaml\nENDCONF\ncat > /data/config/db.yaml <<ENDCONF\ndatabase:\n  name: psycopg2\n  args:\n    user: $${POSTGRES_SYNAPSE_USER}\n    password: $${POSTGRES_SYNAPSE_PASSWORD}\n    database: $${POSTGRES_SYNAPSE_DB}\n    host: postgres-synapse\n    port: 5432\n    cp_min: 5\n    cp_max: 10\n  allow_unsafe_locale: true\nENDCONF\ncat > /data/config/email.yaml <<ENDCONF\nemail:\n  smtp_host: \"$${SMTP_HOST}\"\n  smtp_port: $${SMTP_PORT}\n  smtp_user: \"$${SMTP_USER}\"\n  smtp_pass: \"$${SMTP_PASSWORD}\"\n  require_transport_security: $${SMTP_REQUIRE_TRANSPORT_SECURITY}\n  notif_from: \"$${SMTP_NOTIFY_FROM}\"\n  app_name: \"$${SYNAPSE_FRIENDLY_SERVER_NAME}\"\nENDCONF\nexec python -m synapse.app.homeserver -c /data/config/homeserver.yaml -c /data/config/db.yaml -c /data/config/email.yaml --keys-directory /data"]
     volumes:
       - synapse-data:/data
       - synapse-media:/media_store
@@ -111,6 +111,8 @@ services:
       slack-init:
         condition: service_completed_successfully
       meta-init:
+        condition: service_completed_successfully
+      linkedin-init:
         condition: service_completed_successfully
 
   sliding-sync:
@@ -163,7 +165,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_BRIDGES_PASSWORD}
     volumes:
       - postgres-bridges:/var/lib/postgresql/data
-    entrypoint: ["/bin/sh", "-c", "printf 'CREATE DATABASE mautrix_telegram;\\nCREATE DATABASE mautrix_discord;\\nCREATE DATABASE mautrix_slack;\\nCREATE DATABASE mautrix_meta;\\n' > /docker-entrypoint-initdb.d/create-bridge-dbs.sql && exec docker-entrypoint.sh postgres"]
+    entrypoint: ["/bin/sh", "-c", "printf 'CREATE DATABASE mautrix_telegram;\\nCREATE DATABASE mautrix_discord;\\nCREATE DATABASE mautrix_slack;\\nCREATE DATABASE mautrix_meta;\\nCREATE DATABASE mautrix_linkedin;\\n' > /docker-entrypoint-initdb.d/create-bridge-dbs.sql && exec docker-entrypoint.sh postgres"]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_BRIDGES_USER} -d mautrix_whatsapp"]
       interval: 5s
@@ -257,6 +259,23 @@ services:
       - mautrix-meta-data:/data
       - bridge-registrations:/registrations
 
+  linkedin-init:
+    image: dock.mau.dev/mautrix/linkedin:latest
+    user: "0:0"
+    restart: "no"
+    depends_on:
+      postgres-bridges:
+        condition: service_healthy
+    environment:
+      SYNAPSE_SERVER_NAME: ${SYNAPSE_SERVER_NAME}
+      POSTGRES_BRIDGES_USER: ${POSTGRES_BRIDGES_USER}
+      POSTGRES_BRIDGES_PASSWORD: ${POSTGRES_BRIDGES_PASSWORD}
+      BRIDGE_ADMIN_USER: ${BRIDGE_ADMIN_USER}
+    entrypoint: ["/bin/bash", "-c", "if [ ! -f /data/config.yaml ]; then\n  /usr/bin/mautrix-linkedin -c /data/config.yaml -e\nfi\nyq -i '.homeserver.address = \"http://synapse:8008\"' /data/config.yaml\nyq -i '.homeserver.domain = env(SYNAPSE_SERVER_NAME)' /data/config.yaml\nyq -i '.appservice.address = \"http://mautrix-linkedin:29341\"' /data/config.yaml\nyq -i '.appservice.hostname = \"0.0.0.0\"' /data/config.yaml\nyq -i '.database.type = \"postgres\"' /data/config.yaml\nyq -i '.database.uri = \"postgres://\" + env(POSTGRES_BRIDGES_USER) + \":\" + env(POSTGRES_BRIDGES_PASSWORD) + \"@postgres-bridges:5432/mautrix_linkedin?sslmode=disable\"' /data/config.yaml\nyq -i '.bridge.permissions = {\"*\": \"relay\", env(SYNAPSE_SERVER_NAME): \"user\", env(BRIDGE_ADMIN_USER): \"admin\"}' /data/config.yaml\nrm -f /data/registration.yaml\n/usr/bin/mautrix-linkedin -g -c /data/config.yaml -r /data/registration.yaml\nmkdir -p /registrations\ncp /data/registration.yaml /registrations/linkedin-registration.yaml\nchown -R 1337:1337 /data"]
+    volumes:
+      - mautrix-linkedin-data:/data
+      - bridge-registrations:/registrations
+
   mautrix-whatsapp:
     image: dock.mau.dev/mautrix/whatsapp:latest
     restart: unless-stopped
@@ -312,6 +331,17 @@ services:
     volumes:
       - mautrix-meta-data:/data
 
+  mautrix-linkedin:
+    image: dock.mau.dev/mautrix/linkedin:latest
+    restart: unless-stopped
+    depends_on:
+      linkedin-init:
+        condition: service_completed_successfully
+      synapse:
+        condition: service_started
+    volumes:
+      - mautrix-linkedin-data:/data
+
 volumes:
   postgres-synapse:
   postgres-sliding-sync:
@@ -326,3 +356,4 @@ volumes:
   mautrix-discord-data:
   mautrix-slack-data:
   mautrix-meta-data:
+  mautrix-linkedin-data:

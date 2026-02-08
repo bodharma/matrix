@@ -51,3 +51,4 @@ app_service_config_files:
   - /bridges/discord-registration.yaml
   - /bridges/slack-registration.yaml
   - /bridges/meta-registration.yaml
+  - /bridges/linkedin-registration.yaml
