@@ -116,10 +116,6 @@ services:
         condition: service_completed_successfully
       linkedin-init:
         condition: service_completed_successfully
-      maubot-init:
-        condition: service_completed_successfully
-      hookshot-init:
-        condition: service_completed_successfully
 
   sliding-sync:
     image: ghcr.io/matrix-org/sliding-sync:latest
@@ -290,41 +286,6 @@ services:
       - bridge-registrations:/registrations
       - ./scripts/linkedin-init.sh:/scripts/linkedin-init.sh:ro
 
-  maubot-init:
-    image: dock.mau.dev/maubot/maubot:latest
-    user: "0:0"
-    restart: "no"
-    depends_on:
-      postgres-bridges:
-        condition: service_healthy
-    environment:
-      SYNAPSE_SERVER_NAME: ${SYNAPSE_SERVER_NAME}
-      SYNAPSE_FQDN: ${SYNAPSE_FQDN}
-      POSTGRES_BRIDGES_USER: ${POSTGRES_BRIDGES_USER}
-      POSTGRES_BRIDGES_PASSWORD: ${POSTGRES_BRIDGES_PASSWORD}
-      MAUBOT_ADMIN_PASSWORD: ${MAUBOT_ADMIN_PASSWORD}
-    entrypoint: ["/bin/bash", "/scripts/maubot-init.sh"]
-    volumes:
-      - maubot-data:/data
-      - bridge-registrations:/registrations
-      - ./scripts/maubot-init.sh:/scripts/maubot-init.sh:ro
-
-  hookshot-init:
-    image: halfshot/matrix-hookshot:latest
-    user: "0:0"
-    restart: "no"
-    depends_on:
-      postgres-bridges:
-        condition: service_healthy
-    environment:
-      SYNAPSE_SERVER_NAME: ${SYNAPSE_SERVER_NAME}
-      BRIDGE_ADMIN_USER: ${BRIDGE_ADMIN_USER}
-    entrypoint: ["/bin/sh", "/scripts/hookshot-init.sh"]
-    volumes:
-      - hookshot-data:/data
-      - bridge-registrations:/registrations
-      - ./scripts/hookshot-init.sh:/scripts/hookshot-init.sh:ro
-
   mautrix-whatsapp:
     image: dock.mau.dev/mautrix/whatsapp:latest
     restart: unless-stopped
@@ -391,67 +352,6 @@ services:
     volumes:
       - mautrix-linkedin-data:/data
 
-  maubot:
-    image: dock.mau.dev/maubot/maubot:latest
-    restart: unless-stopped
-    depends_on:
-      maubot-init:
-        condition: service_completed_successfully
-      synapse:
-        condition: service_started
-    volumes:
-      - maubot-data:/data
-
-  hookshot:
-    image: halfshot/matrix-hookshot:latest
-    restart: unless-stopped
-    depends_on:
-      hookshot-init:
-        condition: service_completed_successfully
-      synapse:
-        condition: service_started
-    command: ["node", "/usr/bin/matrix-hookshot/App/BridgeApp.js", "--config", "/data/config.yml", "--registration", "/data/registration.yml"]
-    volumes:
-      - hookshot-data:/data
-
-  postmoogle:
-    image: registry.gitlab.com/etke.cc/postmoogle:latest
-    restart: unless-stopped
-    depends_on:
-      synapse:
-        condition: service_started
-      postgres-bridges:
-        condition: service_healthy
-    environment:
-      POSTMOOGLE_HOMESERVER: http://synapse:8008
-      POSTMOOGLE_LOGIN: postmoogle
-      POSTMOOGLE_SHAREDSECRET: ${SYNAPSE_API_ADMIN_TOKEN}
-      POSTMOOGLE_DOMAINS: ${SYNAPSE_SERVER_NAME}
-      POSTMOOGLE_PORT: "25"
-      POSTMOOGLE_DATA_SECRET: ${POSTMOOGLE_DATA_SECRET}
-      POSTMOOGLE_DB_DSN: "postgres://${POSTGRES_BRIDGES_USER}:${POSTGRES_BRIDGES_PASSWORD}@postgres-bridges:5432/postmoogle?sslmode=disable"
-      POSTMOOGLE_DB_DIALECT: postgres
-      POSTMOOGLE_ADMINS: ${BRIDGE_ADMIN_USER}
-      POSTMOOGLE_LOGLEVEL: info
-    ports:
-      - "25:25"
-
-  dimension:
-    image: turt2live/matrix-dimension:latest
-    restart: unless-stopped
-    depends_on:
-      synapse:
-        condition: service_started
-    environment:
-      SYNAPSE_SERVER_NAME: ${SYNAPSE_SERVER_NAME}
-      BRIDGE_ADMIN_USER: ${BRIDGE_ADMIN_USER}
-      DIMENSION_ACCESS_TOKEN: ${DIMENSION_ACCESS_TOKEN}
-      DIMENSION_PUBLIC_URL: ${DIMENSION_PUBLIC_URL}
-    entrypoint: ["/bin/sh", "/scripts/dimension-entrypoint.sh"]
-    volumes:
-      - dimension-data:/data
-      - ./scripts/dimension-entrypoint.sh:/scripts/dimension-entrypoint.sh:ro
-
 volumes:
   postgres-synapse:
   postgres-sliding-sync:
@@ -467,6 +367,3 @@ volumes:
   mautrix-slack-data:
   mautrix-meta-data:
   mautrix-linkedin-data:
-  maubot-data:
-  hookshot-data:
-  dimension-data:

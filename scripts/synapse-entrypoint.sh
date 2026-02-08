@@ -47,8 +47,6 @@ app_service_config_files:
   - /bridges/slack-registration.yaml
   - /bridges/meta-registration.yaml
   - /bridges/linkedin-registration.yaml
-  - /bridges/maubot-registration.yaml
-  - /bridges/hookshot-registration.yaml
 ENDCONF
 
 cat > /data/config/db.yaml <<ENDCONF
