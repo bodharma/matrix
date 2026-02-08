@@ -92,7 +92,7 @@ services:
       KEYCLOAK_REALM_IDENTIFIER: ${KEYCLOAK_REALM_IDENTIFIER}
       KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID}
       KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET}
-    entrypoint: ["/bin/sh", "-c", "mkdir -p /data/config && cat > /data/config/homeserver.yaml <<ENDCONF\nserver_name: $${SYNAPSE_SERVER_NAME}\n\nlisteners:\n  - port: 8008\n    type: http\n    bind_addresses: ['0.0.0.0']\n    x_forwarded: true\n    resources:\n      - names: [client, federation]\n\nreport_stats: False\n\nlogging:\n  - module: synapse.storage.SQL\n    level: INFO\n\ntrusted_key_servers:\n  - server_name: \"matrix.org\"\nsuppress_key_server_warning: true\n\nenable_registration: false\npassword_config:\n  enabled: false\n\nadmin_contact: 'mailto:$${ADMIN_EMAIL}'\n\nexperimental_features:\n  msc3861:\n    enabled: true\n    issuer: http://synapse-mass-authentication-service:8080\n    client_id: 0000000000000000000SYNAPSE\n    client_auth_method: client_secret_basic\n    client_secret: \"$${SYNAPSE_MAS_SECRET}\"\n    admin_token: \"$${SYNAPSE_API_ADMIN_TOKEN}\"\n    account_management_url: \"$${KEYCLOAK_FQDN}/realms/$${KEYCLOAK_REALM_IDENTIFIER}/account\"\n\napp_service_config_files:\n  - /bridges/whatsapp-registration.yaml\n  - /bridges/telegram-registration.yaml\n  - /bridges/discord-registration.yaml\n  - /bridges/slack-registration.yaml\n  - /bridges/meta-registration.yaml\n  - /bridges/linkedin-registration.yaml\nENDCONF\ncat > /data/config/db.yaml <<ENDCONF\ndatabase:\n  name: psycopg2\n  args:\n    user: $${POSTGRES_SYNAPSE_USER}\n    password: $${POSTGRES_SYNAPSE_PASSWORD}\n    database: $${POSTGRES_SYNAPSE_DB}\n    host: postgres-synapse\n    port: 5432\n    cp_min: 5\n    cp_max: 10\n  allow_unsafe_locale: true\nENDCONF\ncat > /data/config/email.yaml <<ENDCONF\nemail:\n  smtp_host: \"$${SMTP_HOST}\"\n  smtp_port: $${SMTP_PORT}\n  smtp_user: \"$${SMTP_USER}\"\n  smtp_pass: \"$${SMTP_PASSWORD}\"\n  require_transport_security: $${SMTP_REQUIRE_TRANSPORT_SECURITY}\n  notif_from: \"$${SMTP_NOTIFY_FROM}\"\n  app_name: \"$${SYNAPSE_FRIENDLY_SERVER_NAME}\"\nENDCONF\nexec python -m synapse.app.homeserver -c /data/config/homeserver.yaml -c /data/config/db.yaml -c /data/config/email.yaml --keys-directory /data"]
+    entrypoint: ["/bin/sh", "-c", "mkdir -p /data/config && cat > /data/config/homeserver.yaml <<ENDCONF\nserver_name: $${SYNAPSE_SERVER_NAME}\n\nlisteners:\n  - port: 8008\n    type: http\n    bind_addresses: ['0.0.0.0']\n    x_forwarded: true\n    resources:\n      - names: [client, federation]\n\nreport_stats: False\n\nlogging:\n  - module: synapse.storage.SQL\n    level: INFO\n\ntrusted_key_servers:\n  - server_name: \"matrix.org\"\nsuppress_key_server_warning: true\n\nenable_registration: false\npassword_config:\n  enabled: false\n\nadmin_contact: 'mailto:$${ADMIN_EMAIL}'\n\nexperimental_features:\n  msc3861:\n    enabled: true\n    issuer: http://synapse-mass-authentication-service:8080\n    client_id: 0000000000000000000SYNAPSE\n    client_auth_method: client_secret_basic\n    client_secret: \"$${SYNAPSE_MAS_SECRET}\"\n    admin_token: \"$${SYNAPSE_API_ADMIN_TOKEN}\"\n    account_management_url: \"$${KEYCLOAK_FQDN}/realms/$${KEYCLOAK_REALM_IDENTIFIER}/account\"\n\napp_service_config_files:\n  - /bridges/whatsapp-registration.yaml\n  - /bridges/telegram-registration.yaml\n  - /bridges/discord-registration.yaml\n  - /bridges/slack-registration.yaml\n  - /bridges/meta-registration.yaml\n  - /bridges/linkedin-registration.yaml\n  - /bridges/maubot-registration.yaml\n  - /bridges/hookshot-registration.yaml\nENDCONF\ncat > /data/config/db.yaml <<ENDCONF\ndatabase:\n  name: psycopg2\n  args:\n    user: $${POSTGRES_SYNAPSE_USER}\n    password: $${POSTGRES_SYNAPSE_PASSWORD}\n    database: $${POSTGRES_SYNAPSE_DB}\n    host: postgres-synapse\n    port: 5432\n    cp_min: 5\n    cp_max: 10\n  allow_unsafe_locale: true\nENDCONF\ncat > /data/config/email.yaml <<ENDCONF\nemail:\n  smtp_host: \"$${SMTP_HOST}\"\n  smtp_port: $${SMTP_PORT}\n  smtp_user: \"$${SMTP_USER}\"\n  smtp_pass: \"$${SMTP_PASSWORD}\"\n  require_transport_security: $${SMTP_REQUIRE_TRANSPORT_SECURITY}\n  notif_from: \"$${SMTP_NOTIFY_FROM}\"\n  app_name: \"$${SYNAPSE_FRIENDLY_SERVER_NAME}\"\nENDCONF\nexec python -m synapse.app.homeserver -c /data/config/homeserver.yaml -c /data/config/db.yaml -c /data/config/email.yaml --keys-directory /data"]
     volumes:
       - synapse-data:/data
       - synapse-media:/media_store
@@ -113,6 +113,10 @@ services:
       meta-init:
         condition: service_completed_successfully
       linkedin-init:
+        condition: service_completed_successfully
+      maubot-init:
+        condition: service_completed_successfully
+      hookshot-init:
         condition: service_completed_successfully
 
   sliding-sync:
@@ -165,7 +169,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_BRIDGES_PASSWORD}
     volumes:
       - postgres-bridges:/var/lib/postgresql/data
-    entrypoint: ["/bin/sh", "-c", "printf 'CREATE DATABASE mautrix_telegram;\\nCREATE DATABASE mautrix_discord;\\nCREATE DATABASE mautrix_slack;\\nCREATE DATABASE mautrix_meta;\\nCREATE DATABASE mautrix_linkedin;\\n' > /docker-entrypoint-initdb.d/create-bridge-dbs.sql && exec docker-entrypoint.sh postgres"]
+    entrypoint: ["/bin/sh", "-c", "printf 'CREATE DATABASE mautrix_telegram;\\nCREATE DATABASE mautrix_discord;\\nCREATE DATABASE mautrix_slack;\\nCREATE DATABASE mautrix_meta;\\nCREATE DATABASE mautrix_linkedin;\\nCREATE DATABASE maubot;\\nCREATE DATABASE postmoogle;\\n' > /docker-entrypoint-initdb.d/create-bridge-dbs.sql && exec docker-entrypoint.sh postgres"]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_BRIDGES_USER} -d mautrix_whatsapp"]
       interval: 5s
@@ -276,6 +280,39 @@ services:
       - mautrix-linkedin-data:/data
       - bridge-registrations:/registrations
 
+  maubot-init:
+    image: dock.mau.dev/maubot/maubot:latest
+    user: "0:0"
+    restart: "no"
+    depends_on:
+      postgres-bridges:
+        condition: service_healthy
+    environment:
+      SYNAPSE_SERVER_NAME: ${SYNAPSE_SERVER_NAME}
+      SYNAPSE_FQDN: ${SYNAPSE_FQDN}
+      POSTGRES_BRIDGES_USER: ${POSTGRES_BRIDGES_USER}
+      POSTGRES_BRIDGES_PASSWORD: ${POSTGRES_BRIDGES_PASSWORD}
+      MAUBOT_ADMIN_PASSWORD: ${MAUBOT_ADMIN_PASSWORD}
+    entrypoint: ["/bin/bash", "-c", "if [ ! -f /data/config.yaml ]; then\n  cp /opt/maubot/example-config.yaml /data/config.yaml\nfi\nyq -i '.database = \"postgresql://\" + env(POSTGRES_BRIDGES_USER) + \":\" + env(POSTGRES_BRIDGES_PASSWORD) + \"@postgres-bridges:5432/maubot\"' /data/config.yaml\nyq -i '.plugin_databases.postgres = \"postgresql://\" + env(POSTGRES_BRIDGES_USER) + \":\" + env(POSTGRES_BRIDGES_PASSWORD) + \"@postgres-bridges:5432/maubot\"' /data/config.yaml\nyq -i '.server.hostname = \"0.0.0.0\"' /data/config.yaml\nyq -i '.server.port = 29316' /data/config.yaml\nyq -i '.server.public_url = env(SYNAPSE_FQDN)' /data/config.yaml\nyq -i '.server.ui_base_path = \"/_matrix/maubot\"' /data/config.yaml\nyq -i '.homeservers = {env(SYNAPSE_SERVER_NAME): {\"url\": \"http://synapse:8008\", \"secret\": null}}' /data/config.yaml\nyq -i '.admins.root = env(MAUBOT_ADMIN_PASSWORD)' /data/config.yaml\nyq -i '.api_features.login = true' /data/config.yaml\nmkdir -p /data/plugins /data/trash /data/dbs\nif [ ! -f /data/registration.yaml ]; then\n  python3 -c \"\nimport yaml, secrets\nreg = {\n  'id': 'maubot',\n  'url': 'http://maubot:29316',\n  'as_token': secrets.token_hex(32),\n  'hs_token': secrets.token_hex(32),\n  'sender_localpart': 'maubot',\n  'namespaces': {'users': [{'regex': '@maubot_.*:' + '$(echo $SYNAPSE_SERVER_NAME | sed \"s/\\\\./\\\\\\\\./g\")', 'exclusive': true}], 'rooms': [], 'aliases': []},\n  'rate_limited': False,\n  'de.sorunome.msc2409.push_ephemeral': True,\n  'push_ephemeral': True\n}\nwith open('/data/registration.yaml', 'w') as f:\n  yaml.dump(reg, f)\n\"\nfi\nmkdir -p /registrations\ncp /data/registration.yaml /registrations/maubot-registration.yaml\nchown -R 1337:1337 /data"]
+    volumes:
+      - maubot-data:/data
+      - bridge-registrations:/registrations
+
+  hookshot-init:
+    image: halfshot/matrix-hookshot:latest
+    user: "0:0"
+    restart: "no"
+    depends_on:
+      postgres-bridges:
+        condition: service_healthy
+    environment:
+      SYNAPSE_SERVER_NAME: ${SYNAPSE_SERVER_NAME}
+      BRIDGE_ADMIN_USER: ${BRIDGE_ADMIN_USER}
+    entrypoint: ["/bin/sh", "-c", "mkdir -p /data\nif [ ! -f /data/passkey.pem ]; then\n  openssl genpkey -out /data/passkey.pem -outform PEM -algorithm RSA -pkeyopt rsa_keygen_bits:4096 2>/dev/null\nfi\ncat > /data/config.yml <<ENDCONF\nbridge:\n  domain: $${SYNAPSE_SERVER_NAME}\n  url: http://synapse:8008\n  mediaUrl: https://$${SYNAPSE_SERVER_NAME}\n  port: 9993\n  bindAddress: 0.0.0.0\nlogging:\n  level: info\n  colorize: true\n  json: false\n  timestampFormat: HH:mm:ss:SSS\npassFile: /data/passkey.pem\nlisteners:\n  - port: 9000\n    bindAddress: 0.0.0.0\n    resources:\n      - webhooks\n  - port: 9002\n    bindAddress: 0.0.0.0\n    resources:\n      - widgets\npermissions:\n  - actor: $${SYNAPSE_SERVER_NAME}\n    services:\n      - service: \"*\"\n        level: admin\ngeneric:\n  enabled: true\n  outbound: false\n  urlPrefix: https://$${SYNAPSE_SERVER_NAME}/hookshot/\n  userIdPrefix: _hookshot_\n  allowJsTransformationFunctions: false\nfeeds:\n  enabled: true\n  pollIntervalSeconds: 600\n  pollTimeoutSeconds: 30\nbot:\n  displayname: Hookshot Bot\nENDCONF\nif [ ! -f /data/registration.yml ]; then\n  AS_TOKEN=$(cat /dev/urandom | tr -dc 'a-f0-9' | head -c 64)\n  HS_TOKEN=$(cat /dev/urandom | tr -dc 'a-f0-9' | head -c 64)\n  ESCAPED_DOMAIN=$(echo $${SYNAPSE_SERVER_NAME} | sed 's/\\./\\\\./g')\n  cat > /data/registration.yml <<ENDREG\nid: matrix-hookshot\nas_token: $${AS_TOKEN}\nhs_token: $${HS_TOKEN}\nnamespaces:\n  rooms: []\n  users:\n    - regex: \"@_hookshot_.*:$${ESCAPED_DOMAIN}\"\n      exclusive: true\n    - regex: \"@feeds:$${ESCAPED_DOMAIN}\"\n      exclusive: true\n  aliases: []\nsender_localpart: hookshot\nurl: \"http://hookshot:9993\"\nrate_limited: false\nde.sorunome.msc2409.push_ephemeral: true\npush_ephemeral: true\nENDREG\nfi\nmkdir -p /registrations\ncp /data/registration.yml /registrations/hookshot-registration.yaml\nchown -R 1000:1000 /data"]
+    volumes:
+      - hookshot-data:/data
+      - bridge-registrations:/registrations
+
   mautrix-whatsapp:
     image: dock.mau.dev/mautrix/whatsapp:latest
     restart: unless-stopped
@@ -342,6 +379,66 @@ services:
     volumes:
       - mautrix-linkedin-data:/data
 
+  maubot:
+    image: dock.mau.dev/maubot/maubot:latest
+    restart: unless-stopped
+    depends_on:
+      maubot-init:
+        condition: service_completed_successfully
+      synapse:
+        condition: service_started
+    volumes:
+      - maubot-data:/data
+
+  hookshot:
+    image: halfshot/matrix-hookshot:latest
+    restart: unless-stopped
+    depends_on:
+      hookshot-init:
+        condition: service_completed_successfully
+      synapse:
+        condition: service_started
+    command: ["node", "/usr/bin/matrix-hookshot/App/BridgeApp.js", "--config", "/data/config.yml", "--registration", "/data/registration.yml"]
+    volumes:
+      - hookshot-data:/data
+
+  postmoogle:
+    image: registry.gitlab.com/etke.cc/postmoogle:latest
+    restart: unless-stopped
+    depends_on:
+      synapse:
+        condition: service_started
+      postgres-bridges:
+        condition: service_healthy
+    environment:
+      POSTMOOGLE_HOMESERVER: http://synapse:8008
+      POSTMOOGLE_LOGIN: postmoogle
+      POSTMOOGLE_SHAREDSECRET: ${SYNAPSE_API_ADMIN_TOKEN}
+      POSTMOOGLE_DOMAINS: ${SYNAPSE_SERVER_NAME}
+      POSTMOOGLE_PORT: "25"
+      POSTMOOGLE_DATA_SECRET: ${POSTMOOGLE_DATA_SECRET}
+      POSTMOOGLE_DB_DSN: "postgres://${POSTGRES_BRIDGES_USER}:${POSTGRES_BRIDGES_PASSWORD}@postgres-bridges:5432/postmoogle?sslmode=disable"
+      POSTMOOGLE_DB_DIALECT: postgres
+      POSTMOOGLE_ADMINS: ${BRIDGE_ADMIN_USER}
+      POSTMOOGLE_LOGLEVEL: info
+    ports:
+      - "25:25"
+
+  dimension:
+    image: turt2live/matrix-dimension:latest
+    restart: unless-stopped
+    depends_on:
+      synapse:
+        condition: service_started
+    environment:
+      SYNAPSE_SERVER_NAME: ${SYNAPSE_SERVER_NAME}
+      BRIDGE_ADMIN_USER: ${BRIDGE_ADMIN_USER}
+      DIMENSION_ACCESS_TOKEN: ${DIMENSION_ACCESS_TOKEN}
+      DIMENSION_PUBLIC_URL: ${DIMENSION_PUBLIC_URL}
+    volumes:
+      - dimension-data:/data
+    entrypoint: ["/bin/sh", "-c", "cat > /home/node/matrix-dimension/config/production.yaml <<ENDCONF\nweb:\n  port: 8184\n  address: '0.0.0.0'\nhomeserver:\n  name: \"$${SYNAPSE_SERVER_NAME}\"\n  clientServerUrl: \"http://synapse:8008\"\n  accessToken: \"$${DIMENSION_ACCESS_TOKEN}\"\nadmins:\n  - \"$${BRIDGE_ADMIN_USER}\"\ndatabase:\n  file: \"dimension.db\"\n  botData: \"dimension.bot.json\"\nstickers:\n  enabled: true\n  stickerBot: \"@stickers:t2bot.io\"\n  managerUrl: \"https://stickers.t2bot.io\"\ndimension:\n  publicUrl: \"$${DIMENSION_PUBLIC_URL}\"\nENDCONF\nexec node /home/node/matrix-dimension/build/app/index.js -p 8184"]
+
 volumes:
   postgres-synapse:
   postgres-sliding-sync:
@@ -357,3 +454,6 @@ volumes:
   mautrix-slack-data:
   mautrix-meta-data:
   mautrix-linkedin-data:
+  maubot-data:
+  hookshot-data:
+  dimension-data:
