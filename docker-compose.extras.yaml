@@ -182,7 +182,7 @@ services:
     depends_on:
       hookshot-init:
         condition: service_completed_successfully
-    command: ["node", "/usr/bin/matrix-hookshot/App/BridgeApp.js", "--config", "/data/config.yml", "--registration", "/data/registration.yml"]
+    command: ["node", "/usr/bin/matrix-hookshot/App/BridgeApp.js", "/data/config.yml", "/data/registration.yml"]
     volumes:
       - hookshot-data:/data
     networks:
