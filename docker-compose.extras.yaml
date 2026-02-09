@@ -10,7 +10,7 @@ services:
       POSTGRES_BRIDGES_PASSWORD: ${POSTGRES_BRIDGES_PASSWORD}
       MAUBOT_ADMIN_PASSWORD: ${MAUBOT_ADMIN_PASSWORD}
     entrypoint:
-      - /bin/bash
+      - /bin/sh
       - -c
       - |
         set -e
