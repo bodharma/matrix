@@ -18,25 +18,33 @@ services:
           cp /opt/maubot/example-config.yaml /data/config.yaml
         fi
         python3 << 'PYEOF'
-        import yaml, os, re, secrets
+        from ruamel.yaml import YAML
+        import os, re, secrets, pathlib, shutil
+        ym = YAML()
+        ym.preserve_quotes = True
         with open('/data/config.yaml') as f:
-            config = yaml.safe_load(f)
+            config = ym.load(f)
         bu = os.environ['POSTGRES_BRIDGES_USER']
         bp = os.environ['POSTGRES_BRIDGES_PASSWORD']
         db = f'postgresql://{bu}:{bp}@postgres-bridges:5432/maubot'
         config['database'] = db
-        config.setdefault('plugin_databases', {})['postgres'] = db
-        config.setdefault('server', {})['hostname'] = '0.0.0.0'
+        if 'plugin_databases' not in config:
+            config['plugin_databases'] = {}
+        config['plugin_databases']['postgres'] = db
+        if 'server' not in config:
+            config['server'] = {}
+        config['server']['hostname'] = '0.0.0.0'
         config['server']['port'] = 29316
         config['server']['public_url'] = os.environ['SYNAPSE_FQDN']
         config['server']['ui_base_path'] = '/_matrix/maubot'
         sn = os.environ['SYNAPSE_SERVER_NAME']
         config['homeservers'] = {sn: {'url': 'http://synapse:8008', 'secret': None}}
         config['admins'] = {'root': os.environ['MAUBOT_ADMIN_PASSWORD']}
-        config.setdefault('api_features', {})['login'] = True
+        if 'api_features' not in config:
+            config['api_features'] = {}
+        config['api_features']['login'] = True
         with open('/data/config.yaml', 'w') as f:
-            yaml.dump(config, f, default_flow_style=False)
-        import pathlib
+            ym.dump(config, f)
         for d in ['plugins', 'trash', 'dbs']:
             pathlib.Path(f'/data/{d}').mkdir(parents=True, exist_ok=True)
         if not pathlib.Path('/data/registration.yaml').exists():
@@ -56,9 +64,9 @@ services:
                 'de.sorunome.msc2409.push_ephemeral': True,
                 'push_ephemeral': True,
             }
+            ym2 = YAML()
             with open('/data/registration.yaml', 'w') as f:
-                yaml.dump(reg, f, default_flow_style=False)
-        import shutil
+                ym2.dump(reg, f)
         pathlib.Path('/registrations').mkdir(parents=True, exist_ok=True)
         shutil.copy2('/data/registration.yaml', '/registrations/maubot-registration.yaml')
         PYEOF
